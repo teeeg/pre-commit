@@ -216,7 +216,7 @@ def _run_single_hook(
 
         # Print a message if failing due to file modifications
         if files_modified:
-            git.add('--update')
+            git.add(*filenames)
             _subtle_line('- ✨ files were modified by this hook', use_color)
 
         if out.strip():
