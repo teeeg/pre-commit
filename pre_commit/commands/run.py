@@ -196,7 +196,7 @@ def _run_single_hook(
         # if the hook makes changes, fail the commit
         files_modified = diff_before != diff_after
 
-        if retcode or files_modified:
+        if retcode:
             print_color = color.RED
             status = 'Failed'
         else:
@@ -205,7 +205,7 @@ def _run_single_hook(
 
         output.write_line(color.format_color(status, print_color, use_color))
 
-    if verbose or hook.verbose or retcode or files_modified:
+    if verbose or hook.verbose or retcode:
         _subtle_line(f'- hook id: {hook.id}', use_color)
 
         if (verbose or hook.verbose) and duration is not None:
@@ -216,6 +216,7 @@ def _run_single_hook(
 
         # Print a message if failing due to file modifications
         if files_modified:
+            git.add('--update')
             _subtle_line('- ✨ files were modified by this hook', use_color)
 
         if out.strip():

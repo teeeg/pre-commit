@@ -39,12 +39,12 @@ def no_git_env(
     return {
         k: v for k, v in _env.items()
         if not k.startswith('GIT_') or
-        k.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_')) or
-        k in {
-            'GIT_EXEC_PATH', 'GIT_SSH', 'GIT_SSH_COMMAND', 'GIT_SSL_CAINFO',
-            'GIT_SSL_NO_VERIFY', 'GIT_CONFIG_COUNT',
-            'GIT_HTTP_PROXY_AUTHMETHOD',
-        }
+           k.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_')) or
+           k in {
+               'GIT_EXEC_PATH', 'GIT_SSH', 'GIT_SSH_COMMAND', 'GIT_SSL_CAINFO',
+               'GIT_SSL_NO_VERIFY', 'GIT_CONFIG_COUNT',
+               'GIT_HTTP_PROXY_AUTHMETHOD',
+           }
     }
 
 
@@ -101,8 +101,8 @@ def get_remote_url(git_root: str) -> str:
 def is_in_merge_conflict() -> bool:
     git_dir = get_git_dir('.')
     return (
-        os.path.exists(os.path.join(git_dir, 'MERGE_MSG')) and
-        os.path.exists(os.path.join(git_dir, 'MERGE_HEAD'))
+            os.path.exists(os.path.join(git_dir, 'MERGE_MSG')) and
+            os.path.exists(os.path.join(git_dir, 'MERGE_HEAD'))
     )
 
 
@@ -256,3 +256,8 @@ def get_best_candidate_tag(rev: str, git_repo: str) -> str:
         if '.' in tag:
             return tag
     return rev
+
+
+def add(*args: str, repo: str = '.') -> tuple[int, str, str | None]:
+    cmd = ('git', 'add', *args)
+    cmd_output(*cmd, cwd=repo)
