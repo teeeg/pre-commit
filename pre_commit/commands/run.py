@@ -204,6 +204,9 @@ def _run_single_hook(
             status = 'Passed'
 
         output.write_line(color.format_color(status, print_color, use_color))
+        if files_modified:
+            git.add(*filenames)
+            _subtle_line('- ✨ files were modified by this hook', use_color)
 
     if verbose or hook.verbose or retcode:
         _subtle_line(f'- hook id: {hook.id}', use_color)
@@ -213,11 +216,6 @@ def _run_single_hook(
 
         if retcode:
             _subtle_line(f'- exit code: {retcode}', use_color)
-
-        # Print a message if failing due to file modifications
-        if files_modified:
-            git.add(*filenames)
-            _subtle_line('- ✨ files were modified by this hook', use_color)
 
         if out.strip():
             output.write_line()
