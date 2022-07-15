@@ -216,14 +216,14 @@ def _run_single_hook(
 
         # Print a message if failing due to file modifications
         if files_modified:
-            _subtle_line('- files were modified by this hook', use_color)
+            _subtle_line('- ✨ files were modified by this hook', use_color)
 
         if out.strip():
             output.write_line()
             output.write_line_b(out.strip(), logfile_name=hook.log_file)
             output.write_line()
 
-    return files_modified or bool(retcode), diff_after
+    return bool(retcode), diff_after
 
 
 def _compute_cols(hooks: Sequence[Hook]) -> int:
