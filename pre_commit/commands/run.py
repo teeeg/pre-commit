@@ -19,9 +19,9 @@ from identify.identify import tags_from_path
 from pre_commit import color
 from pre_commit import git
 from pre_commit import output
+from pre_commit.all_languages import languages
 from pre_commit.clientlib import load_config
 from pre_commit.hook import Hook
-from pre_commit.languages.all import languages
 from pre_commit.repository import all_hooks
 from pre_commit.repository import install_hook_envs
 from pre_commit.staged_files_only import staged_files_only
@@ -189,7 +189,16 @@ def _run_single_hook(
             filenames = ()
         time_before = time.time()
         language = languages[hook.language]
-        retcode, out = language.run_hook(hook, filenames, use_color)
+        with language.in_env(hook.prefix, hook.language_version):
+            retcode, out = language.run_hook(
+                hook.prefix,
+                hook.entry,
+                hook.args,
+                filenames,
+                is_local=hook.src == 'local',
+                require_serial=hook.require_serial,
+                color=use_color,
+            )
         duration = round(time.time() - time_before, 2) or 0
         diff_after = _get_diff()
 
@@ -244,6 +253,7 @@ def _all_filenames(args: argparse.Namespace) -> Collection[str]:
     # these hooks do not operate on files
     if args.hook_stage in {
         'post-checkout', 'post-commit', 'post-merge', 'post-rewrite',
+        'pre-rebase',
     }:
         return ()
     elif args.hook_stage in {'prepare-commit-msg', 'commit-msg'}:
@@ -262,7 +272,8 @@ def _all_filenames(args: argparse.Namespace) -> Collection[str]:
 
 def _get_diff() -> bytes:
     _, out, _ = cmd_output_b(
-        'git', 'diff', '--no-ext-diff', '--ignore-submodules', retcode=None,
+        'git', 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules',
+        check=False,
     )
     return out
 
@@ -316,8 +327,7 @@ def _has_unmerged_paths() -> bool:
 
 def _has_unstaged_config(config_file: str) -> bool:
     retcode, _, _ = cmd_output_b(
-        'git', 'diff', '--no-ext-diff', '--exit-code', config_file,
-        retcode=None,
+        'git', 'diff', '--quiet', '--no-ext-diff', config_file, check=False,
     )
     # be explicit, other git errors don't mean it has an unstaged config.
     return retcode == 1
@@ -332,7 +342,7 @@ def run(
     stash = not args.all_files and not args.files
 
     # Check if we have unresolved merge conflict files and fail fast.
-    if _has_unmerged_paths():
+    if stash and _has_unmerged_paths():
         logger.error('Unmerged files.  Resolve before committing.')
         return 1
     if bool(args.from_ref) != bool(args.to_ref):
@@ -379,6 +389,10 @@ def run(
         environ['PRE_COMMIT_FROM_REF'] = args.from_ref
         environ['PRE_COMMIT_TO_REF'] = args.to_ref
 
+    if args.pre_rebase_upstream and args.pre_rebase_branch:
+        environ['PRE_COMMIT_PRE_REBASE_UPSTREAM'] = args.pre_rebase_upstream
+        environ['PRE_COMMIT_PRE_REBASE_BRANCH'] = args.pre_rebase_branch
+
     if (
         args.remote_name and args.remote_url and
         args.remote_branch and args.local_branch
@@ -419,7 +433,11 @@ def run(
             return 1
 
         skips = _get_skips(environ)
-        to_install = [hook for hook in hooks if hook.id not in skips]
+        to_install = [
+            hook
+            for hook in hooks
+            if hook.id not in skips and hook.alias not in skips
+        ]
         install_hook_envs(to_install, store)
 
         return _run_hooks(config, hooks, skips, args)

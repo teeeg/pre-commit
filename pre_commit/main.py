@@ -7,6 +7,7 @@ import sys
 from typing import Sequence
 
 import pre_commit.constants as C
+from pre_commit import clientlib
 from pre_commit import git
 from pre_commit.color import add_color_option
 from pre_commit.commands.autoupdate import autoupdate
@@ -52,7 +53,7 @@ def _add_config_option(parser: argparse.ArgumentParser) -> None:
 def _add_hook_type_option(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '-t', '--hook-type',
-        choices=C.HOOK_TYPES, action='append', dest='hook_types',
+        choices=clientlib.HOOK_TYPES, action='append', dest='hook_types',
     )
 
 
@@ -73,7 +74,10 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
         help='When hooks fail, run `git diff` directly afterward.',
     )
     parser.add_argument(
-        '--hook-stage', choices=C.STAGES, default='commit',
+        '--hook-stage',
+        choices=clientlib.STAGES,
+        type=clientlib.transform_stage,
+        default='pre-commit',
         help='The stage during which the hook is fired.  One of %(choices)s',
     )
     parser.add_argument(
@@ -101,6 +105,17 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
             'For `pre-push` hooks, this represents the branch being pushed.  '
             'For `post-checkout` hooks, this represents the branch that is '
             'now checked out.'
+        ),
+    )
+    parser.add_argument(
+        '--pre-rebase-upstream', help=(
+            'The upstream from which the series was forked.'
+        ),
+    )
+    parser.add_argument(
+        '--pre-rebase-branch', help=(
+            'The branch being rebased, and is not set when  '
+            'rebasing the current branch.'
         ),
     )
     parser.add_argument(
@@ -155,6 +170,10 @@ def _adjust_args_and_chdir(args: argparse.Namespace) -> None:
         args.config = os.path.abspath(args.config)
     if args.command in {'run', 'try-repo'}:
         args.files = [os.path.abspath(filename) for filename in args.files]
+        if args.commit_msg_filename is not None:
+            args.commit_msg_filename = os.path.abspath(
+                args.commit_msg_filename,
+            )
     if args.command == 'try-repo' and os.path.exists(args.repo):
         args.repo = os.path.abspath(args.repo)
 
@@ -164,6 +183,10 @@ def _adjust_args_and_chdir(args: argparse.Namespace) -> None:
     args.config = os.path.relpath(args.config)
     if args.command in {'run', 'try-repo'}:
         args.files = [os.path.relpath(filename) for filename in args.files]
+        if args.commit_msg_filename is not None:
+            args.commit_msg_filename = os.path.relpath(
+                args.commit_msg_filename,
+            )
     if args.command == 'try-repo' and os.path.exists(args.repo):
         args.repo = os.path.relpath(args.repo)
 
@@ -203,8 +226,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         help='Store "frozen" hashes in `rev` instead of tag names',
     )
     autoupdate_parser.add_argument(
-        '--repo', dest='repos', action='append', metavar='REPO',
+        '--repo', dest='repos', action='append', metavar='REPO', default=[],
         help='Only update this repository -- may be specified multiple times.',
+    )
+    autoupdate_parser.add_argument(
+        '-j', '--jobs', type=int, default=1,
+        help='Number of threads to use.  (default %(default)s).',
     )
 
     _add_cmd('clean', help='Clean out pre-commit files.')
@@ -345,10 +372,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.command == 'autoupdate':
             return autoupdate(
-                args.config, store,
+                args.config,
                 tags_only=not args.bleeding_edge,
                 freeze=args.freeze,
                 repos=args.repos,
+                jobs=args.jobs,
             )
         elif args.command == 'clean':
             return clean(store)

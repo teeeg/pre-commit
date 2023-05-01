@@ -5,7 +5,6 @@
 - The complete test suite depends on having at least the following installed
   (possibly not a complete list)
   - git (Version 2.24.0 or above is required to run pre-merge-commit tests)
-  - python2 (Required by a test which checks different python versions)
   - python3 (Required by a test which checks different python versions)
   - tox (or virtualenv)
   - ruby + gem
@@ -65,10 +64,10 @@ to implement.  The current implemented languages are at varying levels:
 - 0th class - pre-commit does not require any dependencies for these languages
   as they're not actually languages (current examples: fail, pygrep)
 - 1st class - pre-commit will bootstrap a full interpreter requiring nothing to
-  be installed globally (current examples: node, ruby)
+  be installed globally (current examples: go, node, ruby, rust)
 - 2nd class - pre-commit requires the user to install the language globally but
-  will install tools in an isolated fashion (current examples: python, go, rust,
-  swift, docker).
+  will install tools in an isolated fashion (current examples: python, swift,
+  docker).
 - 3rd class - pre-commit requires the user to install both the tool and the
   language globally (current examples: script, system)
 
