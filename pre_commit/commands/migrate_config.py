@@ -3,9 +3,11 @@ from __future__ import annotations
 import re
 import textwrap
 
+import cfgv
 import yaml
 
-from pre_commit.util import yaml_load
+from pre_commit.clientlib import InvalidConfigError
+from pre_commit.yaml import yaml_load
 
 
 def _is_header_line(line: str) -> bool:
@@ -40,12 +42,28 @@ def _migrate_sha_to_rev(contents: str) -> str:
     return re.sub(r'(\n\s+)sha:', r'\1rev:', contents)
 
 
+def _migrate_python_venv(contents: str) -> str:
+    return re.sub(
+        r'(\n\s+)language: python_venv\b',
+        r'\1language: python',
+        contents,
+    )
+
+
 def migrate_config(config_file: str, quiet: bool = False) -> int:
     with open(config_file) as f:
         orig_contents = contents = f.read()
 
+    with cfgv.reraise_as(InvalidConfigError):
+        with cfgv.validate_context(f'File {config_file}'):
+            try:
+                yaml_load(orig_contents)
+            except Exception as e:
+                raise cfgv.ValidationError(str(e))
+
     contents = _migrate_map(contents)
     contents = _migrate_sha_to_rev(contents)
+    contents = _migrate_python_venv(contents)
 
     if contents != orig_contents:
         with open(config_file, 'w') as f:

@@ -1,139 +1,123 @@
 from __future__ import annotations
 
 import os.path
+import shutil
 
 import pytest
 
 from pre_commit import envcontext
 from pre_commit.languages import r
-from testing.fixtures import make_config_from_repo
-from testing.fixtures import make_repo
-from tests.repository_test import _get_hook_no_install
+from pre_commit.prefix import Prefix
+from pre_commit.store import _make_local_repo
+from pre_commit.util import win_exe
+from testing.language_helpers import run_language
 
 
-def _test_r_parsing(
-    tempdir_factory,
-    store,
-    hook_id,
-    expected_hook_expr={},
-    expected_args={},
-    config={},
-    expect_path_prefix=True,
-):
-    repo_path = 'r_hooks_repo'
-    path = make_repo(tempdir_factory, repo_path)
-    config = config or make_config_from_repo(path)
-    hook = _get_hook_no_install(config, store, hook_id)
-    ret = r._cmd_from_hook(hook)
-    expected_cmd = 'Rscript'
-    expected_opts = (
+def test_r_parsing_file_no_opts_no_args(tmp_path):
+    cmd = r._cmd_from_hook(
+        Prefix(str(tmp_path)),
+        'Rscript some-script.R',
+        (),
+        is_local=False,
+    )
+    assert cmd == (
+        'Rscript',
         '--no-save', '--no-restore', '--no-site-file', '--no-environ',
+        str(tmp_path.joinpath('some-script.R')),
     )
-    expected_path = os.path.join(
-        hook.prefix.prefix_dir if expect_path_prefix else '',
-        f'{hook_id}.R',
-    )
-    expected = (
-        expected_cmd,
-        *expected_opts,
-        *(expected_hook_expr or (expected_path,)),
-        *expected_args,
-    )
-    assert ret == expected
 
 
-def test_r_parsing_file_no_opts_no_args(tempdir_factory, store):
-    hook_id = 'parse-file-no-opts-no-args'
-    _test_r_parsing(tempdir_factory, store, hook_id)
-
-
-def test_r_parsing_file_opts_no_args(tempdir_factory, store):
+def test_r_parsing_file_opts_no_args():
     with pytest.raises(ValueError) as excinfo:
         r._entry_validate(['Rscript', '--no-init', '/path/to/file'])
 
-    msg = excinfo.value.args
+    msg, = excinfo.value.args
     assert msg == (
-        'The only valid syntax is `Rscript -e {expr}`',
-        'or `Rscript path/to/hook/script`',
+        'The only valid syntax is `Rscript -e {expr}`'
+        'or `Rscript path/to/hook/script`'
     )
 
 
-def test_r_parsing_file_no_opts_args(tempdir_factory, store):
-    hook_id = 'parse-file-no-opts-args'
-    expected_args = ['--no-cache']
-    _test_r_parsing(
-        tempdir_factory, store, hook_id, expected_args=expected_args,
+def test_r_parsing_file_no_opts_args(tmp_path):
+    cmd = r._cmd_from_hook(
+        Prefix(str(tmp_path)),
+        'Rscript some-script.R',
+        ('--no-cache',),
+        is_local=False,
+    )
+    assert cmd == (
+        'Rscript',
+        '--no-save', '--no-restore', '--no-site-file', '--no-environ',
+        str(tmp_path.joinpath('some-script.R')),
+        '--no-cache',
     )
 
 
-def test_r_parsing_expr_no_opts_no_args1(tempdir_factory, store):
-    hook_id = 'parse-expr-no-opts-no-args-1'
-    _test_r_parsing(
-        tempdir_factory, store, hook_id, expected_hook_expr=('-e', '1+1'),
+def test_r_parsing_expr_no_opts_no_args1(tmp_path):
+    cmd = r._cmd_from_hook(
+        Prefix(str(tmp_path)),
+        "Rscript -e '1+1'",
+        (),
+        is_local=False,
+    )
+    assert cmd == (
+        'Rscript',
+        '--no-save', '--no-restore', '--no-site-file', '--no-environ',
+        '-e', '1+1',
     )
 
 
-def test_r_parsing_expr_no_opts_no_args2(tempdir_factory, store):
-    with pytest.raises(ValueError) as execinfo:
+def test_r_parsing_local_hook_path_is_not_expanded(tmp_path):
+    cmd = r._cmd_from_hook(
+        Prefix(str(tmp_path)),
+        'Rscript path/to/thing.R',
+        (),
+        is_local=True,
+    )
+    assert cmd == (
+        'Rscript',
+        '--no-save', '--no-restore', '--no-site-file', '--no-environ',
+        'path/to/thing.R',
+    )
+
+
+def test_r_parsing_expr_no_opts_no_args2():
+    with pytest.raises(ValueError) as excinfo:
         r._entry_validate(['Rscript', '-e', '1+1', '-e', 'letters'])
-    msg = execinfo.value.args
-    assert msg == ('You can supply at most one expression.',)
+    msg, = excinfo.value.args
+    assert msg == 'You can supply at most one expression.'
 
 
-def test_r_parsing_expr_opts_no_args2(tempdir_factory, store):
-    with pytest.raises(ValueError) as execinfo:
+def test_r_parsing_expr_opts_no_args2():
+    with pytest.raises(ValueError) as excinfo:
         r._entry_validate(
-            [
-                'Rscript', '--vanilla', '-e', '1+1', '-e', 'letters',
-            ],
+            ['Rscript', '--vanilla', '-e', '1+1', '-e', 'letters'],
         )
-    msg = execinfo.value.args
+    msg, = excinfo.value.args
     assert msg == (
-        'The only valid syntax is `Rscript -e {expr}`',
-        'or `Rscript path/to/hook/script`',
+        'The only valid syntax is `Rscript -e {expr}`'
+        'or `Rscript path/to/hook/script`'
     )
 
 
-def test_r_parsing_expr_args_in_entry2(tempdir_factory, store):
-    with pytest.raises(ValueError) as execinfo:
+def test_r_parsing_expr_args_in_entry2():
+    with pytest.raises(ValueError) as excinfo:
         r._entry_validate(['Rscript', '-e', 'expr1', '--another-arg'])
 
-    msg = execinfo.value.args
-    assert msg == ('You can supply at most one expression.',)
+    msg, = excinfo.value.args
+    assert msg == 'You can supply at most one expression.'
 
 
-def test_r_parsing_expr_non_Rscirpt(tempdir_factory, store):
-    with pytest.raises(ValueError) as execinfo:
+def test_r_parsing_expr_non_Rscirpt():
+    with pytest.raises(ValueError) as excinfo:
         r._entry_validate(['AnotherScript', '-e', '{{}}'])
 
-    msg = execinfo.value.args
-    assert msg == ('entry must start with `Rscript`.',)
-
-
-def test_r_parsing_file_local(tempdir_factory, store):
-    path = 'path/to/script.R'
-    hook_id = 'local-r'
-    config = {
-        'repo': 'local',
-        'hooks': [{
-            'id': hook_id,
-            'name': 'local-r',
-            'entry': f'Rscript {path}',
-            'language': 'r',
-        }],
-    }
-    _test_r_parsing(
-        tempdir_factory,
-        store,
-        hook_id=hook_id,
-        expected_hook_expr=(path,),
-        config=config,
-        expect_path_prefix=False,
-    )
+    msg, = excinfo.value.args
+    assert msg == 'entry must start with `Rscript`.'
 
 
 def test_rscript_exec_relative_to_r_home():
-    expected = os.path.join('r_home_dir', 'bin', 'Rscript')
+    expected = os.path.join('r_home_dir', 'bin', win_exe('Rscript'))
     with envcontext.envcontext((('R_HOME', 'r_home_dir'),)):
         assert r._rscript_exec() == expected
 
@@ -141,3 +125,99 @@ def test_rscript_exec_relative_to_r_home():
 def test_path_rscript_exec_no_r_home_set():
     with envcontext.envcontext((('R_HOME', envcontext.UNSET),)):
         assert r._rscript_exec() == 'Rscript'
+
+
+def test_r_hook(tmp_path):
+    renv_lock = '''\
+{
+  "R": {
+    "Version": "4.0.3",
+    "Repositories": [
+      {
+        "Name": "CRAN",
+        "URL": "https://cloud.r-project.org"
+      }
+    ]
+  },
+  "Packages": {
+    "renv": {
+      "Package": "renv",
+      "Version": "0.12.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "5c0cdb37f063c58cdab3c7e9fbb8bd2c"
+    },
+    "rprojroot": {
+      "Package": "rprojroot",
+      "Version": "1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "86704667fe0860e4fec35afdfec137f3"
+    }
+  }
+}
+'''
+    description = '''\
+Package: gli.clu
+Title: What the Package Does (One Line, Title Case)
+Type: Package
+Version: 0.0.0.9000
+Authors@R:
+    person(given = "First",
+           family = "Last",
+           role = c("aut", "cre"),
+           email = "first.last@example.com",
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: What the package does (one paragraph).
+License: `use_mit_license()`, `use_gpl3_license()` or friends to
+    pick a license
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Imports:
+    rprojroot
+'''
+    hello_world_r = '''\
+stopifnot(
+    packageVersion('rprojroot') == '1.0',
+    packageVersion('gli.clu') == '0.0.0.9000'
+)
+cat("Hello, World, from R!\n")
+'''
+
+    tmp_path.joinpath('renv.lock').write_text(renv_lock)
+    tmp_path.joinpath('DESCRIPTION').write_text(description)
+    tmp_path.joinpath('hello-world.R').write_text(hello_world_r)
+    renv_dir = tmp_path.joinpath('renv')
+    renv_dir.mkdir()
+    shutil.copy(
+        os.path.join(
+            os.path.dirname(__file__),
+            '../../pre_commit/resources/empty_template_activate.R',
+        ),
+        renv_dir.joinpath('activate.R'),
+    )
+
+    expected = (0, b'Hello, World, from R!\n')
+    assert run_language(tmp_path, r, 'Rscript hello-world.R') == expected
+
+
+def test_r_inline(tmp_path):
+    _make_local_repo(str(tmp_path))
+
+    cmd = '''\
+Rscript -e '
+    stopifnot(packageVersion("rprojroot") == "1.0")
+    cat(commandArgs(trailingOnly = TRUE), "from R!\n", sep=", ")
+'
+'''
+
+    ret = run_language(
+        tmp_path,
+        r,
+        cmd,
+        deps=('rprojroot@1.0',),
+        args=('hi', 'hello'),
+    )
+    assert ret == (0, b'hi, hello, from R!\n')

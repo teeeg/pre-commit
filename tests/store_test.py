@@ -9,6 +9,7 @@ import pytest
 
 from pre_commit import git
 from pre_commit.store import _get_default_directory
+from pre_commit.store import _LOCAL_RESOURCES
 from pre_commit.store import Store
 from pre_commit.util import CalledProcessError
 from pre_commit.util import cmd_output
@@ -127,7 +128,7 @@ def test_clone_shallow_failure_fallback_to_complete(
 
     # Force shallow clone failure
     def fake_shallow_clone(self, *args, **kwargs):
-        raise CalledProcessError(1, (), 0, b'', None)
+        raise CalledProcessError(1, (), b'', None)
     store._shallow_clone = fake_shallow_clone
 
     ret = store.clone(path, rev)
@@ -179,7 +180,7 @@ def test_create_when_store_already_exists(store):
 
 def test_db_repo_name(store):
     assert store.db_repo_name('repo', ()) == 'repo'
-    assert store.db_repo_name('repo', ('b', 'a', 'c')) == 'repo:a,b,c'
+    assert store.db_repo_name('repo', ('b', 'a', 'c')) == 'repo:b,a,c'
 
 
 def test_local_resources_reflects_reality():
@@ -188,7 +189,7 @@ def test_local_resources_reflects_reality():
         for res in os.listdir('pre_commit/resources')
         if res.startswith('empty_template_')
     }
-    assert on_disk == {os.path.basename(x) for x in Store.LOCAL_RESOURCES}
+    assert on_disk == {os.path.basename(x) for x in _LOCAL_RESOURCES}
 
 
 def test_mark_config_as_used(store, tmpdir):
@@ -245,3 +246,27 @@ def test_mark_config_as_used_readonly(tmpdir):
     # should be skipped due to readonly
     store.mark_config_used(str(cfg))
     assert store.select_all_configs() == []
+
+
+def test_clone_with_recursive_submodules(store, tmp_path):
+    sub = tmp_path.joinpath('sub')
+    sub.mkdir()
+    sub.joinpath('submodule').write_text('i am a submodule')
+    cmd_output('git', '-C', str(sub), 'init', '.')
+    cmd_output('git', '-C', str(sub), 'add', '.')
+    git.commit(str(sub))
+
+    repo = tmp_path.joinpath('repo')
+    repo.mkdir()
+    repo.joinpath('repository').write_text('i am a repo')
+    cmd_output('git', '-C', str(repo), 'init', '.')
+    cmd_output('git', '-C', str(repo), 'add', '.')
+    cmd_output('git', '-C', str(repo), 'submodule', 'add', str(sub), 'sub')
+    git.commit(str(repo))
+
+    rev = git.head_rev(str(repo))
+    ret = store.clone(str(repo), rev)
+
+    assert os.path.exists(ret)
+    assert os.path.exists(os.path.join(ret, str(repo), 'repository'))
+    assert os.path.exists(os.path.join(ret, str(sub), 'submodule'))

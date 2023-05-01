@@ -1,3 +1,167 @@
+3.2.2 - 2023-04-03
+==================
+
+### Fixes
+- Fix support for swift >= 5.8.
+    - #2836 PR by @edelabar.
+    - #2835 issue by @kgrobelny-intive.
+
+3.2.1 - 2023-03-25
+==================
+
+### Fixes
+- Fix `language_version` for `language: rust` without global `rustup`.
+    - #2823 issue by @daschuer.
+    - #2827 PR by @asottile.
+
+3.2.0 - 2023-03-17
+==================
+
+### Features
+- Allow `pre-commit`, `pre-push`, and `pre-merge-commit` as `stages`.
+    - #2732 issue by @asottile.
+    - #2808 PR by @asottile.
+- Add `pre-rebase` hook support.
+    - #2582 issue by @BrutalSimplicity.
+    - #2725 PR by @mgaligniana.
+
+### Fixes
+- Remove bulky cargo cache from `language: rust` installs.
+    - #2820 PR by @asottile.
+
+3.1.1 - 2023-02-27
+==================
+
+### Fixes
+- Fix `rust` with `language_version` and a non-writable host `RUSTUP_HOME`.
+    - pre-commit-ci/issues#173 by @Swiftb0y.
+    - #2788 by @asottile.
+
+3.1.0 - 2023-02-22
+==================
+
+### Fixes
+- Fix `dotnet` for `.sln`-based hooks for dotnet>=7.0.200.
+    - #2763 PR by @m-rsha.
+- Prevent stashing when `diff` fails to execute.
+    - #2774 PR by @asottile.
+    - #2773 issue by @strubbly.
+- Dependencies are no longer sorted in repository key.
+    - #2776 PR by @asottile.
+
+### Updating
+- Deprecate `language: python_venv`.  Use `language: python` instead.
+    - #2746 PR by @asottile.
+    - #2734 issue by @asottile.
+
+
+3.0.4 - 2023-02-03
+==================
+
+### Fixes
+- Fix hook diff detection for files affected by `--textconv`.
+    - #2743 PR by @adamchainz.
+    - #2743 issue by @adamchainz.
+
+3.0.3 - 2023-02-01
+==================
+
+### Fixes
+- Revert "Prevent local `Gemfile` from interfering with hook execution.".
+    - #2739 issue by @Roguelazer.
+    - #2740 PR by @asottile.
+
+3.0.2 - 2023-01-29
+==================
+
+### Fixes
+- Prevent local `Gemfile` from interfering with hook execution.
+    - #2727 PR by @asottile.
+- Fix `language: r`, `repo: local` hooks
+    - pre-commit-ci/issues#107 by @lorenzwalthert.
+    - #2728 PR by @asottile.
+
+3.0.1 - 2023-01-26
+==================
+
+### Fixes
+- Ensure coursier hooks are available offline after install.
+    - #2723 PR by @asottile.
+
+3.0.0 - 2023-01-23
+==================
+
+### Features
+- Make `language: golang` bootstrap `go` if not present.
+    - #2651 PR by @taoufik07.
+    - #2649 issue by @taoufik07.
+- `language: coursier` now supports `additional_dependencies` and `repo: local`
+    - #2702 PR by @asottile.
+- Upgrade `ruby-build` to `20221225`.
+    - #2718 PR by @jalessio.
+
+### Fixes
+- Improve error message for invalid yaml for `pre-commit autoupdate`.
+    - #2686 PR by @asottile.
+    - #2685 issue by @CarstenGrohmann.
+- `repo: local` no longer provisions an empty `git` repo.
+    - #2699 PR by @asottile.
+
+### Updating
+- Drop support for python<3.8
+    - #2655 PR by @asottile.
+- Drop support for top-level list, use `pre-commit migrate-config` to update.
+    - #2656 PR by @asottile.
+- Drop support for `sha` to specify revision, use `pre-commit migrate-config`
+  to update.
+    - #2657 PR by @asottile.
+- Remove `pre-commit-validate-config` and `pre-commit-validate-manifest`, use
+  `pre-commit validate-config` and `pre-commit validate-manifest` instead.
+    - #2658 PR by @asottile.
+- `language: golang` hooks must use `go.mod` to specify dependencies
+    - #2672 PR by @taoufik07.
+
+
+2.21.0 - 2022-12-25
+===================
+
+### Features
+- Require new-enough virtualenv to prevent 3.10 breakage
+    - #2467 PR by @asottile.
+- Respect aliases with `SKIP` for environment install.
+    - #2480 PR by @kmARC.
+    - #2478 issue by @kmARC.
+- Allow `pre-commit run --files` against unmerged paths.
+    - #2484 PR by @asottile.
+- Also apply regex warnings to `repo: local` hooks.
+    - #2524 PR by @chrisRedwine.
+    - #2521 issue by @asottile.
+- `rust` is now a "first class" language -- supporting `language_version` and
+  installation when not present.
+    - #2534 PR by @Holzhaus.
+- `r` now uses more-reliable binary installation.
+    - #2460 PR by @lorenzwalthert.
+- `GIT_ALLOW_PROTOCOL` is now passed through for git operations.
+    - #2555 PR by @asottile.
+- `GIT_ASKPASS` is now passed through for git operations.
+    - #2564 PR by @mattp-.
+- Remove `toml` dependency by using `cargo add` directly.
+    - #2568 PR by @m-rsha.
+- Support `dotnet` hooks which have dotted prefixes.
+    - #2641 PR by @rkm.
+    - #2629 issue by @rkm.
+
+### Fixes
+- Properly adjust `--commit-msg-filename` if run from a sub directory.
+    - #2459 PR by @asottile.
+- Simplify `--intent-to-add` detection by using `git diff`.
+    - #2580 PR by @m-rsha.
+- Fix `R.exe` selection on windows.
+    - #2605 PR by @lorenzwalthert.
+    - #2599 issue by @SInginc.
+- Skip default `nuget` source when installing `dotnet` packages.
+    - #2642 PR by @rkm.
+
 2.20.0 - 2022-07-10
 ===================
 

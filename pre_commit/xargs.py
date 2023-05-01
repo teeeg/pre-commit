@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import contextlib
 import math
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -20,6 +21,13 @@ from pre_commit.util import cmd_output_p
 
 TArg = TypeVar('TArg')
 TRet = TypeVar('TRet')
+
+
+def cpu_count() -> int:
+    try:
+        return multiprocessing.cpu_count()
+    except NotImplementedError:
+        return 1
 
 
 def _environ_size(_env: MutableMapping[str, str] | None = None) -> int:
@@ -154,7 +162,7 @@ def xargs(
             run_cmd: tuple[str, ...],
     ) -> tuple[int, bytes, bytes | None]:
         return cmd_fn(
-            *run_cmd, retcode=None, stderr=subprocess.STDOUT, **kwargs,
+            *run_cmd, check=False, stderr=subprocess.STDOUT, **kwargs,
         )
 
     threads = min(len(partitions), target_concurrency)
